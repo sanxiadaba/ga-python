@@ -11,7 +11,6 @@ geneLen = cityNum
 
 
 # 个体类
-
 class Individual:
     # 默认的话是随机生成序列
     def __init__(self, genes=None):
@@ -31,10 +30,12 @@ class Individual:
         fitness += cityDistMat[self.genes[-1], self.genes[0]]
         return fitness
 
+
 # 定义算法的具体流程
 
 
 class Ga:
+
     def __init__(self):
         self.best = None  # 每一代的最佳个体
         self.individualList = []  # 每一代的个体列表
@@ -57,8 +58,10 @@ class Ga:
             indexEnd = random.randint(indexBegin, geneLen - 1)
             # 记录下初始基因对应的位置(储存为字典)，为了下一步的操作
             dictFirst = {value: index for index, value in enumerate(geneFirst)}
-            dictSecond = {value: index for index,
-                          value in enumerate(geneSecond)}
+            dictSecond = {
+                value: index
+                for index, value in enumerate(geneSecond)
+            }
 
             # 交叉 注意，这里如果要交换的基因片段在另一部分已经有的话，相当于把另一个基因要重复的地方交换
             # e,g
@@ -74,7 +77,8 @@ class Ga:
                 value1, value2 = geneFirst[j], geneSecond[j]
                 pos1, pos2 = dictFirst[value2], dictSecond[value1]
                 geneFirst[j], geneFirst[pos1] = geneFirst[pos1], geneFirst[j]
-                geneSecond[j], geneSecond[pos2] = geneSecond[pos2], geneSecond[j]
+                geneSecond[j], geneSecond[pos2] = geneSecond[pos2], geneSecond[
+                    j]
                 dictFirst[value1], dictFirst[value2] = pos1, j
                 dictSecond[value1], dictSecond[value2] = j, pos2
             newGen.append(Individual(geneFirst))

@@ -7,9 +7,8 @@ import numpy as np
 # 随机生成每个城市的坐标(也可以自定义)
 cityPosList = np.random.rand(cityNum, dimNum)
 
+
 # 城市之间两两的距离矩阵
-
-
 def buildDistMat(inputList):
     n = cityNum
     distMat = np.zeros([n, n])
