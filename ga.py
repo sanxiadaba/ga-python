@@ -1,156 +1,99 @@
-# 基因算法的定义
-
+# 遗传算法
 import random
-from constant import cityNum, individualNum, mutateProb, iterationTime
-from distMat import cityDistMat
-from typing import List
 from copy import deepcopy
+from typing import List
 
-# 基因长度等于城市的长度
-geneLen = cityNum
-
-
-# 个体类
-class Individual:
-    # 默认的话是随机生成序列
-    def __init__(self, genes=None):
-        if genes is None:
-            genes = [i for i in range(geneLen)]
-            random.shuffle(genes)
-        self.genes = genes
-        self.fitness = self.evaluateFitness()
-
-    # 计算个体适应度
-    def evaluateFitness(self):
-        fitness = 0
-        for i in range(geneLen - 1):
-            # 起始城市和目标城市
-            fitness += cityDistMat[self.genes[i], self.genes[i + 1]]
-        # 最后还要回来
-        fitness += cityDistMat[self.genes[-1], self.genes[0]]
-        return fitness
+from constant import group_num, group_num_rate, iteration_time, survivors_num
+from Individual import Individual, my_cross, my_mutate
 
 
 # 定义算法的具体流程
-
-
 class Ga:
 
-    def __init__(self):
-        self.best = None  # 每一代的最佳个体
-        self.individualList = []  # 每一代的个体列表
-        self.resultList = []  # 每一代对应的解
-        self.fitnessList = []  # 每一代对应的适应度
+    def __init__(self, fitness_flag=False):
+        self.best_list = [None]  # 每一代的最佳个体
+        self.best = self.best_list[-1]  # 经历了整个算法之后的最佳个体
+        self.individual_list = []  # 当代的个体列表
+        self.result_list = []  # 每一代对应的解(最佳个体对应的基因)
+        self.fitness_list = []  # 每一代的最佳适应度
+        # fitness越大越好还是越小越好,默认false表示越小越好
+        self.reverse_flag = fitness_flag
 
     # 基因重组
     def cross(self):
-        # 新基因
-        newGen = []
-        # 先打乱再进行基因重组
-        random.shuffle(self.individualList)
-        # 这里步长为2，正好对应父母亲基因进行重组
-        for i in range(0, individualNum - 1, 2):
-            # 要进行交换的基因 注意这里用的是deepcopy,不然的话会改变原数组(把基因重组、变异后的目标与原样本放在一起进行筛选)
-            geneFirst = deepcopy(self.individualList[i].genes)
-            geneSecond = deepcopy(self.individualList[i + 1].genes)
-            # 随机生成要交换基因的首尾，保证后者大于前者，进行交换
-            indexBegin = random.randint(0, geneLen - 2)
-            indexEnd = random.randint(indexBegin, geneLen - 1)
-            # 记录下初始基因对应的位置(储存为字典)，为了下一步的操作
-            dictFirst = {value: index for index, value in enumerate(geneFirst)}
-            dictSecond = {
-                value: index
-                for index, value in enumerate(geneSecond)
-            }
-
-            # 交叉 注意，这里如果要交换的基因片段在另一部分已经有的话，相当于把另一个基因要重复的地方交换
-            # e,g
-            # [1,4,5,2,3] 与 [4,1,3,2,5]交换中间的三个基因
-            # 直接交换的话，基因里面会出现重复元素
-            # 1,3,2这是第二个基因“移植到”第一个基因上的
-            # 首先在第一个基因里查找1， 发现不在交换的片段 于是1与4交换位置
-            # 基因变为 [4,1,5,2,3]
-            # 再查找3 发现基因一的3的index也在交换之外 那就交换基因1里5，3位置变为
-            # [4,1,3,2,5]
-            # 最后 2与2交换
-            for j in range(indexBegin, indexEnd):
-                value1, value2 = geneFirst[j], geneSecond[j]
-                pos1, pos2 = dictFirst[value2], dictSecond[value1]
-                geneFirst[j], geneFirst[pos1] = geneFirst[pos1], geneFirst[j]
-                geneSecond[j], geneSecond[pos2] = geneSecond[pos2], geneSecond[
-                    j]
-                dictFirst[value1], dictFirst[value2] = pos1, j
-                dictSecond[value1], dictSecond[value2] = j, pos2
-            newGen.append(Individual(geneFirst))
-            newGen.append(Individual(geneSecond))
-        return newGen
+        return my_cross(self.individual_list)
 
     # 在执行基因重组的时候是可能变异的
-    def mutate(self, newGen):
-        for individual in newGen:
-            # 触发变异概率的话,基因进行翻转
-            if random.random() < mutateProb:
-                # 这里采用对某个基因片段做反转的做法
-                oldGenes = deepcopy(individual.genes)
-                indexBegin = random.randint(0, geneLen - 2)
-                indexEnd = random.randint(indexBegin, geneLen - 1)
-                genesMutate = oldGenes[indexBegin:indexEnd]
-                genesMutate.reverse()
-                individual.genes = oldGenes[:indexBegin] + \
-                    genesMutate + oldGenes[indexEnd:]
+    def mutate(self, new_individual_list):
+        my_mutate(new_individual_list)
         # 两代合并(上一代与经过重组、变异的一代)
-        self.individualList += newGen
+        self.individual_list += new_individual_list
 
-    # 挑选优秀的基因 这里采用的是锦标赛挑选机制，分成一定个小组，每个小组选出一定个数的基因(为了避免局部最优的陷阱)
+    # 挑选优秀的基因 这里采用的是锦标赛挑选机制,分成一定个小组,每个小组选出一定个数的基因(为了避免局部最优的陷阱)
     def select(self):
-        groupNum = 10  # 小组数
-        groupSize = 10  # 每小组人数
-        groupWinner = individualNum // groupNum  # 每小组获胜人数
+        group_size = (survivors_num // group_num) * 2  # 每小组人数
+        group_winner = int(group_size * group_num_rate)  # 每小组获胜人数
         winners = []  # 锦标赛结果
-        for i in range(groupNum):
+        for _ in range(group_num):
             group = []
-            for j in range(groupSize):
-                # 随机组成小组
-                player = random.choice(self.individualList)
-                player = Individual(player.genes)
+            for _ in range(group_size):
+                # 随机组成小组,注意,在这个机制下,有的基因可能压根因为运气差就不会被选中
+                # 但这更贴合自然环境,即优秀的个体,也未免会留下后代
+                player = random.choice(self.individual_list)
+                player = Individual(player.gene)
                 group.append(player)
             group = Ga.rank(group)
             # 取出获胜者
-            winners += group[:groupWinner]
-        self.individualList = winners
+            if self.reverse_flag == False:
+                winners += group[:group_winner]
+            else:
+                winners += group[group_size - group_winner:]
+            # 新一代
+        self.individual_list = winners
 
-    # 根据数组里每个基因的fitness进行升序排列
+    # 根据数组里每个基因的fitness进行指定规则的排序(看reverse_flag)
     @staticmethod
-    def rank(group: List[IndentationError]):
+    def rank(group: List[Individual]):
+        # group里是一个个的Individual,它们按照fitness进行升序
         return sorted(group, key=lambda x: x.fitness)
 
     # 开始迭代
-    def nextGen(self):
+    def next_gen(self):
         # 交叉
-        newGen = self.cross()
+        new_individual_list = self.cross()
         # 变异
-        self.mutate(newGen)
+        self.mutate(new_individual_list)
         # 选择
         self.select()
+        # 对新的一代进行排序
+        self.individual_list = self.rank(self.individual_list)
+        # 排序后的个体列表,最后一个就是这一代中的“优胜者”
+        if self.reverse_flag == False:
+            self.best_list.append(self.individual_list[0])
+        else:
+            self.best_list.append(self.individual_list[-1])
 
-        # 获得这一代最好结果当作这一代的结果
-        for individual in self.individualList:
-            if individual.fitness < self.best.fitness:
-                self.best = individual
+        # 与历代最好进行比较
+        if self.reverse_flag == False:
+            if (self.best_list[-1]).fitness < self.best.fitness:
+                self.best = self.best_list[-1]
+        else:
+            if (self.best_list[-1]).fitness > self.best.fitness:
+                self.best = self.best_list[-1]
 
     # 训练
     def train(self):
         # 初代种群随机初始化
-        self.individualList = [Individual() for _ in range(individualNum)]
-        self.best = self.individualList[0]
+        self.individual_list = [Individual() for _ in range(survivors_num)]
+        self.best = self.rank(self.individual_list)[-1]
         # 迭代
-        for i in range(iterationTime):
-            self.nextGen()
-            # 连接首尾(最后还要回来的)
-            result = deepcopy(self.best.genes)
-            result.append(result[0])
-
-            self.resultList.append(result)
-            self.fitnessList.append(self.best.fitness)
-        # 返回的是每一代最好的基因和对应的适应度
-        return self.resultList, self.fitnessList
+        for i in range(iteration_time):
+            self.next_gen()
+            print("第", i + 1, "轮迭代", "此时最佳个体基因为：", self.best.gene, " ",
+                  "此时适应度为： ", self.best.fitness)
+        # 更新result_list 和 fitness_list
+        # 注意,先别忘了删除best_list的第一个 因为一开始放进去了一个none
+        self.best_list.pop(0)
+        for best in self.best_list:
+            self.result_list.append(best)
+            self.fitness_list.append(best.fitness)

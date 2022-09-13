@@ -1,21 +1,20 @@
-from distMat import cityDistMat, cityPosList
-from ga import Ga
-from myPlot import myPlot
+from Ga import Ga
+from Plot import Plot
 
-# 打印城市的坐标
-print(cityPosList)
-
-# 打印城市之间的距离矩阵
-print(cityDistMat)
 
 # 实例化遗传算法
 ga = Ga()
-# 开始训练(每一代最好的基因以及对应的适应度 )
-resultList, fitnessList = ga.train()
-# 把最好的当作最后的结果
-result = resultList[-1]
-# 最优基因的路径
-resultPosList = cityPosList[result, :]
+# 开始训练
+ga.train()
+# 整个进化历程中最优秀的个体
+result = ga.best
+# 输出最终最优秀的个体，以及它的适应度
+print(result.gene)
+print(result.fitness)
+# 历代最优秀的个体以及它们的适应度(可以酌情使用)
+best_list=ga.best_list
+fitness_list=ga.fitness_list
 
 # 绘图
-myPlot(resultPosList, resultList, fitnessList)
+my_plot=Plot(ga)
+my_plot.plot_all()

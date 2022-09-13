@@ -35,22 +35,27 @@
 ```
 * 输出：
 
-    ![avatar](./imgs/路线.png)
+    ![avatar](./imgs/fitness.jpg)
 
-    ![avatar](./imgs/适应度.png)
+    ![avatar](./imgs/plot_tsp.jpg)
 ## 代码结构
 ```
 constant.py：各参数配置
-ga.py：遗传算法实现
-main.py：程序入口，数据预处理，效果展示
-distMat: 初始化城市位置、距离矩阵
-myPlot： 画图
+Ga.py：遗传算法实现
+main.py：程序入口
+Individual.py: 定义个体基因的行为
+Plot.py： 画图
+utulity.py: 一些功能函数
 ```
 ## 环境
-* 语言：`python3.8.10`
-* 数据处理：`numpy`
+* 语言：`python3.10.7`
 * 数据可视化：`matplotlib`
 ## 使用
 1. clone到本地
 2. 准备环境
 3. 运行main.py
+
+## 注意
+遗传算法中，适应度、生成基因、交叉、变异的函数需要针对具体项目进行修改
+
+即修改Individual.py 文件里的四个函数
