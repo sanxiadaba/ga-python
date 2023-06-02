@@ -4,7 +4,9 @@ from copy import deepcopy
 from typing import List
 
 from constant import group_num, group_num_rate, iteration_time, survivors_num
-from Individual import Individual, my_cross, my_mutate
+from cross import my_cross
+from individual import Individual
+from mutate import my_mutate
 
 
 # 定义算法的具体流程

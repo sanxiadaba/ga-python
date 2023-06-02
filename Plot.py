@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 
 from constant import city_pos
-from Ga import Ga
+from ga import Ga
 
 # 解决中文显示问题(windows上)
 plt.rcParams['font.sans-serif'] = ['KaiTi']  # 指定默认字体
@@ -24,7 +24,7 @@ class Plot:
         fig = plt.figure()
         plt.plot(self.ga.fitness_list)
         plt.title(u"适应度曲线")
-        plt.legend()
+        # plt.legend()
         plt.savefig("./imgs/fitness.jpg")
         fig.show()
 
@@ -39,6 +39,6 @@ class Plot:
         y.append(city_pos[best.gene[0]][1])
         plt.plot(x, y, 'o-r')
         plt.title(u"路线")
-        plt.legend()
+        # plt.legend()
         plt.savefig("./imgs/plot_tsp.jpg")
         fig.show()

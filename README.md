@@ -1,9 +1,10 @@
-# 遗传算法解决旅行商（TSP）问题
-## 参考视频地址
+# 遗传算法解决旅行商（TSP）问题,以及求函数最值
+## 旅行商问题
+### 参考视频
 <https://www.bilibili.com/video/BV17Z4y1w7qF>
-## 参考项目
+### 参考项目
 <https://github.com/zifeiyu0531/ga-tsp>
-## 效果
+### 效果
 * 输入：
 ```python
 # 城市坐标列表
@@ -38,8 +39,13 @@
     ![avatar](./imgs/fitness.jpg)
 
     ![avatar](./imgs/plot_tsp.jpg)
+* 注意：因为tsp是经典的np难问题，结果可能是不一样的
+
+## 函数最值问题
+
 ## 代码结构
 ```
+imgs: 储存图片的文件
 constant.py：各参数配置
 Ga.py：遗传算法实现
 main.py：程序入口
