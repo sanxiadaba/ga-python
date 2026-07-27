@@ -1,67 +1,142 @@
-# 遗传算法解决旅行商（TSP）问题,以及求函数最值
-## 旅行商问题
-### 参考视频
-<https://www.bilibili.com/video/BV17Z4y1w7qF>
-### 参考项目
-<https://github.com/zifeiyu0531/ga-tsp>
-### 效果
-* 输入：
+# Reproducible Genetic Algorithm for TSP
+
+This project uses a genetic algorithm (GA) to solve a fixed 25-city Euclidean traveling
+salesperson problem. It includes deterministic runs, invariant tests, a simple heuristic
+baseline, aggregate experiment reporting, and a generic strategy API for other optimization
+problems.
+
+## Requirements
+
+- Python 3.10 or newer
+- Matplotlib 3.8 or newer
+
+Install the application:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -e .
+```
+
+For development and tests:
+
+```powershell
+.venv\Scripts\python -m pip install -e ".[dev]"
+```
+
+## Run the TSP solver
+
+```powershell
+.venv\Scripts\ga-tsp
+```
+
+The command uses a fixed seed by default, prints the route and its distance, compares it with
+the independently verified optimum and the nearest-neighbor + 2-opt baseline, and writes plots
+to `output/`. It exits normally after saving; add `--show` to open interactive plot windows.
+
+Useful options:
+
+```powershell
+.venv\Scripts\ga-tsp --seed 4 --generations 300 --population-size 80
+.venv\Scripts\ga-tsp --no-plot
+.venv\Scripts\ga-tsp --progress
+```
+
+## Repeat the experiment
+
+A single GA result is not enough to assess a stochastic algorithm. Run multiple consecutive
+seeds and report the distribution:
+
+```powershell
+.venv\Scripts\ga-tsp-experiment --runs 30
+```
+
+The bundled route has a proven optimum of `4.267835351807`. An independent mixed-integer linear
+programming model solved it to zero MIP gap. The deterministic nearest-neighbor + 2-opt baseline
+also reaches that value.
+
+For seeds 0-19 with the default GA settings:
+
+| Metric | Before the rewrite | Current implementation |
+|---|---:|---:|
+| Best | 4.387226 | 4.267835 |
+| Median | 4.759353 | 4.369096 |
+| Mean | 4.782647 | 4.358758 |
+| Mean gap from optimum | 12.06% | 2.13% |
+| Worst | 5.544973 | 4.597231 |
+| Optimal runs | 0/50 | 4/20 |
+
+The run counts differ because the left column records the original 50-run audit and the right
+column is the fixed implementation's 20-seed regression sample. Use the experiment command to
+produce a fresh report on your machine.
+
+## Algorithm
+
+- Ordered crossover preserves valid permutations.
+- Inclusive inversion mutation always changes at least two positions when triggered.
+- Tournament contestants are sampled without replacement.
+- Elites preserve the best routes and make the recorded best fitness monotonic.
+- The configured population size remains constant across generations.
+- Genes and evaluated fitness values are stored together as immutable individuals.
+- Every `train()` call resets all state and recreates its seeded random generator.
+- Strategy callbacks receive cloned genes; immutable TSP tuples use a zero-copy clone strategy.
+
+Pairwise city distances are precomputed once. The GA is intentionally kept separate from the
+2-opt baseline so its quality can be evaluated rather than hidden by local search.
+
+## Use another objective
+
+`GeneticAlgorithm` accepts strategies for gene creation, fitness, crossover, and mutation. This
+example maximizes `-(x - 37)^2` over integer genes:
+
 ```python
-# 城市坐标列表
-[[0.34373988 0.28799359]
- [0.59614005 0.20891475]
- [0.31594294 0.24015942]
- [0.00445381 0.27850897]
- [0.72902031 0.02892819]
- [0.8927462  0.72593335]
- [0.69496064 0.49234185]
- [0.13480979 0.80326909]
- [0.09446444 0.74511812]
- [0.00322167 0.83702802]
- [0.13020064 0.52840454]
- [0.42933579 0.8439443 ]
- [0.23382182 0.40566047]
- [0.76388352 0.75707397]
- [0.55766312 0.403058  ]
- [0.18937066 0.0122916 ]
- [0.19229783 0.33401292]
- [0.10528408 0.39235952]
- [0.037418   0.04081298]
- [0.38220903 0.65365966]
- [0.2893925  0.3846537 ]
- [0.38730741 0.20597485]
- [0.18536116 0.34750257]
- [0.69820574 0.16041619]
- [0.31628208 0.50875925]]
+import random
+
+from ga import GAConfig, GeneticAlgorithm
+
+target = 37
+
+
+def crossover(first: int, second: int, rng: random.Random) -> tuple[int, int]:
+    midpoint = round((first + second) / 2)
+    return midpoint, rng.choice((first, second))
+
+
+def mutate(value: int, rng: random.Random, probability: float) -> int:
+    if rng.random() >= probability or value == target:
+        return value
+    return value + 1 if value < target else value - 1
+
+
+solver = GeneticAlgorithm[int](
+    config=GAConfig(minimize=False, mutation_probability=1, seed=0),
+    gene_factory=lambda rng: rng.randrange(0, 75),
+    fitness_function=lambda value: -float((value - target) ** 2),
+    crossover_function=crossover,
+    mutation_function=mutate,
+)
+print(solver.train())
 ```
-* 输出：
 
-    ![avatar](./imgs/fitness.jpg)
+## Test and lint
 
-    ![avatar](./imgs/plot_tsp.jpg)
-* 注意：因为tsp是经典的np难问题，结果可能是不一样的
-
-## 函数最值问题
-
-## 代码结构
+```powershell
+.venv\Scripts\ruff check .
+.venv\Scripts\pytest
 ```
-imgs: 储存图片的文件
-constant.py：各参数配置
-Ga.py：遗传算法实现
-main.py：程序入口
-Individual.py: 定义个体基因的行为
-Plot.py： 画图
-utulity.py: 一些功能函数
-```
-## 环境
-* 语言：`python3.10.7`
-* 数据可视化：`matplotlib`
-## 使用
-1. clone到本地
-2. 准备环境
-3. 运行main.py
 
-## 注意
-遗传算法中，适应度、生成基因、交叉、变异的函数需要针对具体项目进行修改
+The test suite covers operator invariants, invalid configuration, fixed population size,
+monotonic best history, repeated training, generic function maximization, the verified optimum,
+multi-seed reproducibility, CLI exit behavior, and plot generation. GitHub Actions runs the same
+checks on Python 3.10, 3.11, and 3.12.
 
-即修改Individual.py 文件里的四个函数
+## Project layout
+
+- `ga.py`: generic GA engine and the configured TSP solver
+- `cross.py`, `mutate.py`, `gen_gene.py`: genetic operators
+- `fitness.py`, `utility.py`: validated route fitness and geometry helpers
+- `heuristics.py`: nearest-neighbor and 2-opt baselines
+- `experiment.py`: repeated-run statistics
+- `main.py`, `plot.py`: command-line application and plotting
+- `tests/`: unit, integration, and regression tests
+
+The original learning reference is <https://github.com/zifeiyu0531/ga-tsp>.

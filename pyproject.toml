@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ga-python-tsp"
+version = "1.0.0"
+description = "A reproducible genetic-algorithm experiment for a 25-city TSP"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "matplotlib>=3.8,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.11,<1",
+]
+
+[project.scripts]
+ga-tsp = "main:main"
+ga-tsp-experiment = "experiment:main"
+
+[tool.setuptools]
+py-modules = [
+    "constant",
+    "cross",
+    "experiment",
+    "fitness",
+    "ga",
+    "gen_gene",
+    "heuristics",
+    "individual",
+    "main",
+    "mutate",
+    "plot",
+    "utility",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]

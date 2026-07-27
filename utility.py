@@ -1,12 +1,22 @@
-# 一些用到的函数
+"""Geometry helpers shared by the solver and validation baselines."""
 
-from math import sqrt
+from collections.abc import Sequence
+from math import dist
 
-from constant import city_pos
+Point = tuple[float, float]
+DistanceMatrix = tuple[tuple[float, ...], ...]
 
 
-# 两两城市之间的距离
-def city_dist_mat(pos1, pos2):
-    dist = sqrt((city_pos[pos1][0] - city_pos[pos2][0])**2 +
-                (city_pos[pos1][1] - city_pos[pos2][1])**2)
-    return dist
+def build_distance_matrix(points: Sequence[Point]) -> DistanceMatrix:
+    """Precompute all pairwise Euclidean distances."""
+    return tuple(tuple(dist(first, second) for second in points) for first in points)
+
+
+def route_length(route: Sequence[int], distance_matrix: DistanceMatrix) -> float:
+    """Return the length of a closed route."""
+    if not route:
+        raise ValueError("route must contain at least one city")
+    return sum(
+        distance_matrix[route[index]][route[(index + 1) % len(route)]]
+        for index in range(len(route))
+    )

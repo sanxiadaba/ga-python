@@ -1,13 +1,22 @@
-from constant import gene_len
-from utility import city_dist_mat
+"""Fitness function for the bundled TSP problem."""
+
+from collections.abc import Sequence
+
+from constant import CITY_POS
+from utility import DistanceMatrix, build_distance_matrix, route_length
+
+CITY_DISTANCE_MATRIX = build_distance_matrix(CITY_POS)
 
 
-# 自定义适应度函数
-def my_fitness(gene):
-    fitness = 0
-    for i in range(gene_len - 1):
-        # 起始城市和目标城市
-        fitness += city_dist_mat(gene[i], gene[i + 1])
-    # 最后还要回来(转一圈)
-    fitness += city_dist_mat(gene[-1], gene[0])
-    return fitness
+def validate_tour(gene: Sequence[int], city_count: int) -> None:
+    """Reject incomplete routes and routes containing duplicate cities."""
+    if len(gene) != city_count or set(gene) != set(range(city_count)):
+        raise ValueError(f"gene must be a permutation of range({city_count})")
+
+
+def tsp_fitness(
+    gene: Sequence[int], distance_matrix: DistanceMatrix = CITY_DISTANCE_MATRIX
+) -> float:
+    """Return the total distance of a closed TSP route."""
+    validate_tour(gene, len(distance_matrix))
+    return route_length(gene, distance_matrix)
