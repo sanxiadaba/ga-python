@@ -1,4 +1,4 @@
-"""25 个城市、城市间距离，以及把路线理顺的 2-opt。"""
+"""25 个城市、城市间距离。"""
 
 from math import dist
 
@@ -73,33 +73,3 @@ def route_length(route: tuple[int, ...]) -> float:
         total += DISTANCES[previous][city]
         previous = city
     return total
-
-
-def two_opt(route: tuple[int, ...]) -> tuple[int, ...]:
-    """把交叉的两条边换开，直到换不动为止。"""
-    best = list(route)
-    count = len(best)
-    improved = True
-    while improved:
-        improved = False
-        for head in range(count - 1):
-            first, second = best[head], best[head + 1]
-            distances = DISTANCES[first]
-            base = distances[second]
-            for tail in range(head + 2, count):
-                if head == 0 and tail == count - 1:
-                    continue
-                tail_city = best[tail]
-                closing_city = best[(tail + 1) % count]
-                gain = (
-                    distances[tail_city]
-                    + DISTANCES[second][closing_city]
-                    - base
-                    - DISTANCES[tail_city][closing_city]
-                )
-                if gain < -1e-12:
-                    best[head + 1 : tail + 1] = reversed(best[head + 1 : tail + 1])
-                    second = best[head + 1]
-                    base = distances[second]
-                    improved = True
-    return tuple(best)

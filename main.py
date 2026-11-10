@@ -24,13 +24,8 @@ def _row(label: str, value: str) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="用遗传算法求 25 城 TSP 的最短路线")
     parser.add_argument("--seed", type=int, default=0, help="随机种子")
-    parser.add_argument(
-        "--population-size", type=int, default=None, help="每代多少条路线（默认 30，--pure 时 80）"
-    )
-    parser.add_argument(
-        "--generations", type=int, default=None, help="迭代多少代（默认 30，--pure 时 300）"
-    )
-    parser.add_argument("--pure", action="store_true", help="关掉 2-opt，跑纯遗传算法")
+    parser.add_argument("--population-size", type=int, default=80, help="每代多少条路线")
+    parser.add_argument("--generations", type=int, default=300, help="迭代多少代")
     parser.add_argument("--no-plot", action="store_true", help="不画图")
     parser.add_argument("--show", action="store_true", help="存完图打开窗口")
     return parser
@@ -39,24 +34,16 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    # 纯遗传算法收敛慢，给足代数才看得出它差在哪。
-    population_size = 80 if args.pure else 30
-    generations = 300 if args.pure else 30
-    if args.population_size is not None:
-        population_size = args.population_size
-    if args.generations is not None:
-        generations = args.generations
-    if population_size < 2:
+    if args.population_size < 2:
         parser.error("每代至少要 2 条路线")
-    if generations < 1:
+    if args.generations < 1:
         parser.error("至少要迭代 1 代")
 
     started = time.perf_counter()
     result = solve(
-        population_size=population_size,
-        generations=generations,
+        population_size=args.population_size,
+        generations=args.generations,
         seed=args.seed,
-        polish=not args.pure,
     )
     elapsed = time.perf_counter() - started
 

@@ -27,8 +27,8 @@ def test_no_plot_skips_the_images(capsys: pytest.CaptureFixture[str]) -> None:
     assert "路线图" not in capsys.readouterr().out
 
 
-def test_pure_mode_runs(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["--no-plot", "--pure", "--generations", "5"]) == 0
+def test_custom_size_runs(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--no-plot", "--population-size", "20", "--generations", "20"]) == 0
 
     assert "最优差距" in capsys.readouterr().out
 
