@@ -1,22 +1,19 @@
-# 遗传算法求解 25 城 TSP
+# 25 城旅行商问题
 
-内置一个 25 城 TSP，用遗传算法求最短路线，默认 0.1 秒内找到已知最优解。
-`--pure` 关掉 2-opt，可以看到纯遗传算法差多少。
+25 个城市，要找到一条把每个城市各走一遍、最后回到起点、总距离最短的路线。
 
-## 安装
+程序用遗传算法来试：先随机生成一堆路线，每一代挑出好的、让它们交叉、偶尔把一段顺序倒过来，
+再把差的淘汰，反复 30 代。
 
-```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install -e ".[dev]"
+## 怎么用
+
+在仓库目录里执行：
+
+```
+python main.py
 ```
 
-WSL / Linux 把 `.venv\Scripts\` 换成 `.venv/bin/`。
-
-## 跑
-
-```powershell
-.venv\Scripts\ga-tsp
-```
+终端会打印这些：
 
 ```
 最优路线    1,14,6,...,4,23
@@ -25,57 +22,27 @@ WSL / Linux 把 `.venv\Scripts\` 换成 `.venv/bin/`。
 最优差距    0.000000%
 基线距离    4.267835351807
 耗时        0.072 秒
-路线图      ...\output\route.png
-适应度图    ...\output\fitness.png
 ```
 
-常用参数：`--pure` 纯遗传算法，`--runs 30` 多种子统计（不画图），`--no-plot` 不画图，
-`--show` 存完开窗口，`--progress` 每代打印。其余看 `ga-tsp --help`。
-没装包时用 `python -m ga_tsp`。
+`已知最优` 是用整数规划算出来的标准答案，`基线距离` 是换个简单办法直接算出来的结果，都拿来对比。
 
-## 实测
+同时在 `output/` 里生成两张图：
 
-| 跑法 | 单次耗时 | 平均差距 | 命中最优 |
-|---|---:|---:|---:|
-| 默认（每个新解先做一次 2-opt），30 次 | 0.07 秒 | 0 | 30/30 |
-| `--pure`（纯 GA），30 次 | 0.20 秒 | 3.36% | 4/30 |
-| 基线（每个起点做最近邻 + 2-opt） | 0.005 秒 | 0 | 确定性 |
+`route.png` —— 最短的路线长什么样
 
-反转变异本身就是一次 2-opt，纯 GA 跑完已经是 2-opt 局部最优，再补也好不了。
-让 2-opt 在每代介入才能稳定命中最优。
+![路线](output/route.png)
 
-## 当库用
+`fitness.png` —— 每一代的最短距离怎么降下来（绿虚线是标准答案）
 
-`GeneticAlgorithm` 和 TSP 无关，换目标只要给四个函数。下面最大化 `-(x - 37)^2`：
+![收敛过程](output/fitness.png)
 
-```python
-from ga_tsp import GAConfig, GeneticAlgorithm
+## 想看纯遗传算法差多少
 
-
-def mutate(x: int, rng, probability: float) -> int:
-    if rng.random() >= probability or x == 37:
-        return x
-    return x + 1 if x < 37 else x - 1
-
-
-solver = GeneticAlgorithm[int](
-    config=GAConfig(minimize=False, mutation_probability=1, seed=0),
-    gene_factory=lambda rng: rng.randrange(75),
-    fitness_function=lambda x: -float((x - 37) ** 2),
-    crossover_function=lambda a, b, rng: (round((a + b) / 2),) * 2,
-    mutation_function=mutate,
-)
-print(solver.train())  # Individual(gene=37, ...)
+```
+python main.py --pure
 ```
 
-`best_history` / `mean_history` 是每代的历史最优和种群平均；传 `refine_function`
-就是上面说的 memetic。
+`--pure` 关掉 2-opt（每代顺手把路线里交叉的两条边换开这一步）。不做这一步，纯遗传算法
+平均差 3% 左右，30 次里只有 4 次能撞上标准答案。
 
-## 检查
-
-```powershell
-.venv\Scripts\ruff check .
-.venv\Scripts\ruff format --check .
-.venv\Scripts\mypy
-.venv\Scripts\python -m pytest --cov
-```
+其他参数看 `python main.py --help`。

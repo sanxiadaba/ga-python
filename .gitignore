@@ -4,7 +4,10 @@ __pycache__/
 *$py.class
 .idea
 .vscode
-/output/
+/output/*
+# README 里展示的两张图要跟着仓库走
+!/output/route.png
+!/output/fitness.png
 # C extensions
 *.so
 

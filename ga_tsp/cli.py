@@ -102,7 +102,10 @@ def _print_single(args: argparse.Namespace, config: GAConfig, memetic: bool) -> 
     ]
     if not args.no_plot:
         # 延迟导入，--no-plot 时不加载 matplotlib。
-        from .plot import save_plots
+        try:
+            from .plot import save_plots
+        except ModuleNotFoundError as error:
+            raise SystemExit("缺少 matplotlib，先运行：pip install matplotlib") from error
 
         route_path, fitness_path = save_plots(solver, args.output_dir, show=args.show)
         lines.append(_row("路线图", str(route_path.resolve())))
