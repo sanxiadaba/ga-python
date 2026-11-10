@@ -6,6 +6,7 @@ import random
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
+from operator import attrgetter
 from typing import Generic, TypeVar
 
 from constant import CITY_POS
@@ -102,9 +103,14 @@ class GeneticAlgorithm(Generic[GeneT]):
             return candidate < incumbent
         return candidate > incumbent
 
+    def _best(self, population: list[Individual[GeneT]]) -> Individual[GeneT]:
+        """Return the best individual without paying for a full sort."""
+        chooser = min if self.config.minimize else max
+        return chooser(population, key=attrgetter("fitness"))
+
     def _select_parent(self) -> Individual[GeneT]:
         contestants = self._rng.sample(self.population, self.config.tournament_size)
-        return self._rank(contestants)[0]
+        return self._best(contestants)
 
     def _next_generation(self) -> None:
         next_population = self._rank(self.population)[: self.config.elite_count]
@@ -131,11 +137,11 @@ class GeneticAlgorithm(Generic[GeneT]):
         self.population = [
             self._evaluate(self.gene_factory(self._rng)) for _ in range(self.config.population_size)
         ]
-        self.best = self._rank(self.population)[0]
+        self.best = self._best(self.population)
 
         for generation in range(1, self.config.generations + 1):
             self._next_generation()
-            generation_best = self._rank(self.population)[0]
+            generation_best = self._best(self.population)
             if self._is_better(generation_best.fitness, self.best.fitness):
                 self.best = generation_best
             self.best_list.append(self.best)

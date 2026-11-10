@@ -10,7 +10,6 @@ from constant import KNOWN_OPTIMAL_LENGTH
 from ga import Ga, GAConfig
 from heuristics import best_nearest_neighbor_two_opt
 from individual import Individual
-from plot import Plot
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +57,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"nearest_neighbor_2opt={baseline_distance:.12f}")
 
     if not args.no_plot:
+        # Imported lazily so `--no-plot` stays usable without matplotlib installed.
+        from plot import Plot
+
         route_path, fitness_path = Plot(solver, args.output_dir).plot_all(show=args.show)
         print(f"route_plot={route_path.resolve()}")
         print(f"fitness_plot={fitness_path.resolve()}")

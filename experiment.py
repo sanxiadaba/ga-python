@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import random
 import statistics
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from constant import KNOWN_OPTIMAL_LENGTH
 from ga import Ga, GAConfig
@@ -16,6 +17,7 @@ from heuristics import best_nearest_neighbor_two_opt
 class ExperimentSummary:
     distances: tuple[float, ...]
     optimum: float
+    base_seed: int = 0
 
     @property
     def best(self) -> float:
@@ -52,23 +54,23 @@ class ExperimentSummary:
         return sum(distance <= limit for distance in self.distances)
 
 
+def resolve_base_seed(config: GAConfig) -> int:
+    """Return the first seed of the run, drawing one when the config leaves it open."""
+    if config.seed is not None:
+        return config.seed
+    return random.SystemRandom().randrange(2**32)
+
+
 def run_experiment(runs: int, base_config: GAConfig) -> ExperimentSummary:
+    """Run the solver once per consecutive seed and summarize the results."""
     if runs < 1:
         raise ValueError("runs must be at least 1")
-    first_seed = base_config.seed or 0
+    base_seed = resolve_base_seed(base_config)
     distances = []
     for offset in range(runs):
-        config = GAConfig(
-            population_size=base_config.population_size,
-            generations=base_config.generations,
-            mutation_probability=base_config.mutation_probability,
-            tournament_size=base_config.tournament_size,
-            elite_count=base_config.elite_count,
-            minimize=base_config.minimize,
-            seed=first_seed + offset,
-        )
+        config = replace(base_config, seed=base_seed + offset)
         distances.append(Ga(config).train().fitness)
-    return ExperimentSummary(tuple(distances), KNOWN_OPTIMAL_LENGTH)
+    return ExperimentSummary(tuple(distances), KNOWN_OPTIMAL_LENGTH, base_seed)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,6 +102,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary = run_experiment(args.runs, config)
     _, baseline = best_nearest_neighbor_two_opt()
     print(f"runs={len(summary.distances)}")
+    print(f"base_seed={summary.base_seed}")
     print(f"best={summary.best:.12f}")
     print(f"median={summary.median:.12f}")
     print(f"mean={summary.mean:.12f}")

@@ -5,9 +5,17 @@ salesperson problem. It includes deterministic runs, invariant tests, a simple h
 baseline, aggregate experiment reporting, and a generic strategy API for other optimization
 problems.
 
+## Scope
+
+This is a worked example of *GA engineering*, not a TSP solver to reach for. On 25 cities the
+deterministic nearest-neighbor + 2-opt baseline reaches the optimum in about half a second,
+while the GA stops roughly 2.4% short after 300 generations. That gap is deliberate: the GA is
+kept free of local search so its own search quality can be measured, and the baseline exists to
+make the gap visible rather than hide it.
+
 ## Requirements
 
-- Python 3.10 or newer
+- Python 3.10 to 3.14 (CI runs the full suite on each)
 - Matplotlib 3.8 or newer
 
 Install the application:
@@ -32,6 +40,8 @@ For development and tests:
 The command uses a fixed seed by default, prints the route and its distance, compares it with
 the independently verified optimum and the nearest-neighbor + 2-opt baseline, and writes plots
 to `output/`. It exits normally after saving; add `--show` to open interactive plot windows.
+`--no-plot` skips the plotting import entirely, so the solver still runs where Matplotlib is
+missing.
 
 Useful options:
 
@@ -60,14 +70,21 @@ For seeds 0-19 with the default GA settings:
 |---|---:|---:|
 | Best | 4.387226 | 4.267835 |
 | Median | 4.759353 | 4.369096 |
-| Mean | 4.782647 | 4.358758 |
-| Mean gap from optimum | 12.06% | 2.13% |
-| Worst | 5.544973 | 4.597231 |
+| Mean | 4.782647 | 4.371189 |
+| Mean gap from optimum | 12.06% | 2.42% |
+| Worst | 5.544973 | 4.589487 |
 | Optimal runs | 0/50 | 4/20 |
 
 The run counts differ because the left column records the original 50-run audit and the right
-column is the fixed implementation's 20-seed regression sample. Use the experiment command to
-produce a fresh report on your machine.
+column is the fixed implementation's 20-seed regression sample. The right column is the measured
+output of `ga-tsp-experiment --runs 20 --seed 0` on this code; an earlier draft of this table
+quoted a slightly better mean and worst that the current implementation does not reproduce, so
+those two rows were refreshed rather than carried over. Use the experiment command to produce a
+fresh report on your machine.
+
+The baseline line in every report is deterministic, costs about half a second, and prints the
+same optimum on every run. The report also prints `base_seed=<n>`, so an unseeded run
+(`GAConfig(seed=None)`) can be replayed by passing that value back as `--seed`.
 
 ## Algorithm
 
@@ -79,6 +96,11 @@ produce a fresh report on your machine.
 - Genes and evaluated fitness values are stored together as immutable individuals.
 - Every `train()` call resets all state and recreates its seeded random generator.
 - Strategy callbacks receive cloned genes; immutable TSP tuples use a zero-copy clone strategy.
+
+The clones at crossover, mutation, and evaluation are deliberate: a user-supplied operator may
+mutate its input in place, and an `Individual` must never share mutable state with the
+population. Routes are validated as permutations at the fitness boundary, so a broken operator
+fails loudly instead of scoring garbage.
 
 Pairwise city distances are precomputed once. The GA is intentionally kept separate from the
 2-opt baseline so its quality can be evaluated rather than hidden by local search.
@@ -127,7 +149,7 @@ print(solver.train())
 The test suite covers operator invariants, invalid configuration, fixed population size,
 monotonic best history, repeated training, generic function maximization, the verified optimum,
 multi-seed reproducibility, CLI exit behavior, and plot generation. GitHub Actions runs the same
-checks on Python 3.10, 3.11, and 3.12.
+checks on Python 3.10 through 3.14.
 
 ## Project layout
 
