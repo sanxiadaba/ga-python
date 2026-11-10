@@ -1,9 +1,11 @@
 # Reproducible Genetic Algorithm for TSP
 
+English | [简体中文](README.zh-CN.md)
+
 This project uses a genetic algorithm (GA) to solve a fixed 25-city Euclidean traveling
-salesperson problem. It includes deterministic runs, invariant tests, a simple heuristic
-baseline, aggregate experiment reporting, and a generic strategy API for other optimization
-problems.
+salesperson problem. It ships as a typed package (`ga_tsp`) with deterministic runs, invariant
+tests, a deterministic heuristic baseline, aggregate experiment reporting, and a generic
+strategy API for other optimization problems.
 
 ## Scope
 
@@ -11,14 +13,14 @@ This is a worked example of *GA engineering*, not a TSP solver to reach for. On 
 deterministic nearest-neighbor + 2-opt baseline reaches the optimum in about half a second,
 while the GA stops roughly 2.4% short after 300 generations. That gap is deliberate: the GA is
 kept free of local search so its own search quality can be measured, and the baseline exists to
-make the gap visible rather than hide it.
+make the gap visible rather than hide it. `--hybrid` exists if you want to see the gap close.
 
 ## Requirements
 
-- Python 3.10 to 3.14 (CI runs the full suite on each)
+- Python 3.10 to 3.14 (CI runs the full suite on Ubuntu and Windows for each)
 - Matplotlib 3.8 or newer
 
-Install the application:
+## Install
 
 ```powershell
 python -m venv .venv
@@ -49,7 +51,14 @@ Useful options:
 .venv\Scripts\ga-tsp --seed 4 --generations 300 --population-size 80
 .venv\Scripts\ga-tsp --no-plot
 .venv\Scripts\ga-tsp --progress
+.venv\Scripts\ga-tsp --hybrid
 ```
+
+`--hybrid` is an opt-in comparison. It finishes the GA route with 2-opt and prints
+`hybrid_distance=` and `hybrid_optimality_gap_percent=` next to the untouched `best_distance=`,
+so the default GA path and every number quoted below stay unchanged.
+
+Without installing, run `python -m ga_tsp.main` from the repository root.
 
 ## Repeat the experiment
 
@@ -105,7 +114,7 @@ fails loudly instead of scoring garbage.
 Pairwise city distances are precomputed once. The GA is intentionally kept separate from the
 2-opt baseline so its quality can be evaluated rather than hidden by local search.
 
-## Use another objective
+## Use the engine for another objective
 
 `GeneticAlgorithm` accepts strategies for gene creation, fitness, crossover, and mutation. This
 example maximizes `-(x - 37)^2` over integer genes:
@@ -113,7 +122,7 @@ example maximizes `-(x - 37)^2` over integer genes:
 ```python
 import random
 
-from ga import GAConfig, GeneticAlgorithm
+from ga_tsp import GAConfig, GeneticAlgorithm
 
 target = 37
 
@@ -139,26 +148,50 @@ solver = GeneticAlgorithm[int](
 print(solver.train())
 ```
 
+## Package layout
+
+- `ga_tsp/ga.py`: generic GA engine and the configured TSP solver
+- `ga_tsp/cross.py`, `ga_tsp/mutate.py`, `ga_tsp/gen_gene.py`: genetic operators
+- `ga_tsp/fitness.py`, `ga_tsp/utility.py`: validated route fitness and geometry helpers
+- `ga_tsp/heuristics.py`: nearest-neighbor and 2-opt baselines
+- `ga_tsp/experiment.py`: repeated-run statistics
+- `ga_tsp/main.py`, `ga_tsp/plot.py`: command-line application and plotting
+- `ga_tsp/py.typed`: PEP 561 marker, so downstream type checkers see the annotations
+- `tests/`: unit, integration, and regression tests
+
 ## Test and lint
 
 ```powershell
 .venv\Scripts\ruff check .
-.venv\Scripts\pytest
+.venv\Scripts\ruff format --check .
+.venv\Scripts\mypy
+.venv\Scripts\pytest --cov
 ```
 
-The test suite covers operator invariants, invalid configuration, fixed population size,
-monotonic best history, repeated training, generic function maximization, the verified optimum,
-multi-seed reproducibility, CLI exit behavior, and plot generation. GitHub Actions runs the same
-checks on Python 3.10 through 3.14.
+The suite covers operator invariants, invalid configuration, fixed population size, monotonic
+best history, repeated training, generic function maximization, the verified optimum, multi-seed
+reproducibility, CLI exit behavior, plot generation and figure cleanup, and package metadata.
+Statement and branch coverage is gated at 95% (currently 100%) and `mypy --strict` runs over the
+package. GitHub Actions runs the same checks on Python 3.10 through 3.14 on Ubuntu and Windows,
+plus a job that builds a wheel and runs both console scripts from it.
 
-## Project layout
+## Upgrading from 1.x
 
-- `ga.py`: generic GA engine and the configured TSP solver
-- `cross.py`, `mutate.py`, `gen_gene.py`: genetic operators
-- `fitness.py`, `utility.py`: validated route fitness and geometry helpers
-- `heuristics.py`: nearest-neighbor and 2-opt baselines
-- `experiment.py`: repeated-run statistics
-- `main.py`, `plot.py`: command-line application and plotting
-- `tests/`: unit, integration, and regression tests
+1.x exposed flat top-level modules (`ga.py`, `main.py`, `plot.py`, ...). 2.0 moves them into the
+`ga_tsp` package and removes the flat modules, so the distribution no longer shadows generic
+names such as `main`, `plot`, or `utility` in `site-packages`.
+
+| 1.x | 2.0 |
+|---|---|
+| `from ga import GAConfig, GeneticAlgorithm` | `from ga_tsp import GAConfig, GeneticAlgorithm` |
+| `from heuristics import best_nearest_neighbor_two_opt` | `from ga_tsp.heuristics import best_nearest_neighbor_two_opt` |
+| `python -m main` | `python -m ga_tsp.main` |
+| `ga-tsp`, `ga-tsp-experiment` | unchanged |
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
 
 The original learning reference is <https://github.com/zifeiyu0531/ga-tsp>.

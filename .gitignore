@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 .idea
 .vscode
-test
 /output/
 # C extensions
 *.so

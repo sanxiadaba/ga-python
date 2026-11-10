@@ -19,7 +19,7 @@ def _ordered_child(
     fill_positions = [*range(end + 1, len(child)), *range(0, start)]
     for position, value in zip(fill_positions, fill_values, strict=True):
         child[position] = value
-    if any(value is None for value in child):
+    if any(value is None for value in child):  # pragma: no cover
         raise RuntimeError("ordered crossover produced an incomplete child")
     return tuple(value for value in child if value is not None)
 

@@ -8,9 +8,9 @@ import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
-from constant import KNOWN_OPTIMAL_LENGTH
-from ga import Ga, GAConfig
-from heuristics import best_nearest_neighbor_two_opt
+from .constant import KNOWN_OPTIMAL_LENGTH
+from .ga import Ga, GAConfig
+from .heuristics import best_nearest_neighbor_two_opt
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +37,7 @@ class ExperimentSummary:
 
     @property
     def standard_deviation(self) -> float:
+        """Population standard deviation of the run distances."""
         return statistics.pstdev(self.distances)
 
     @property
@@ -117,5 +118,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

@@ -2,8 +2,8 @@
 
 from collections.abc import Sequence
 
-from fitness import CITY_DISTANCE_MATRIX
-from utility import DistanceMatrix, route_length
+from .fitness import CITY_DISTANCE_MATRIX
+from .utility import DistanceMatrix, route_length
 
 
 def nearest_neighbor(

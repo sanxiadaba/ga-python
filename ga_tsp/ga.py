@@ -6,15 +6,14 @@ import random
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from operator import attrgetter
 from typing import Generic, TypeVar
 
-from constant import CITY_POS
-from cross import ordered_crossover
-from fitness import tsp_fitness
-from gen_gene import generate_permutation
-from individual import Individual
-from mutate import inversion_mutation
+from .constant import CITY_POS
+from .cross import ordered_crossover
+from .fitness import tsp_fitness
+from .gen_gene import generate_permutation
+from .individual import Individual
+from .mutate import inversion_mutation
 
 GeneT = TypeVar("GeneT")
 GeneFactory = Callable[[random.Random], GeneT]
@@ -98,15 +97,16 @@ class GeneticAlgorithm(Generic[GeneT]):
             reverse=not self.config.minimize,
         )
 
+    def _best(self, population: list[Individual[GeneT]]) -> Individual[GeneT]:
+        """Return the best individual without paying for a full sort."""
+        if self.config.minimize:
+            return min(population, key=lambda individual: individual.fitness)
+        return max(population, key=lambda individual: individual.fitness)
+
     def _is_better(self, candidate: float, incumbent: float) -> bool:
         if self.config.minimize:
             return candidate < incumbent
         return candidate > incumbent
-
-    def _best(self, population: list[Individual[GeneT]]) -> Individual[GeneT]:
-        """Return the best individual without paying for a full sort."""
-        chooser = min if self.config.minimize else max
-        return chooser(population, key=attrgetter("fitness"))
 
     def _select_parent(self) -> Individual[GeneT]:
         contestants = self._rng.sample(self.population, self.config.tournament_size)

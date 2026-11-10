@@ -5,8 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from constant import CITY_POS
-from ga import Ga
+from .constant import CITY_POS
+from .ga import Ga
 
 
 class Plot:
@@ -64,7 +64,7 @@ class Plot:
         return figure
 
     def _tour_figure(self) -> Figure:
-        if self.ga.best is None:
+        if self.ga.best is None:  # pragma: no cover - __init__ already rejects untrained solvers
             raise ValueError("the genetic algorithm must be trained before plotting")
         route = (*self.ga.best.gene, self.ga.best.gene[0])
         x_values = [CITY_POS[index][0] for index in route]

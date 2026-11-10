@@ -6,10 +6,10 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from constant import KNOWN_OPTIMAL_LENGTH
-from ga import Ga, GAConfig
-from heuristics import best_nearest_neighbor_two_opt
-from individual import Individual
+from .constant import KNOWN_OPTIMAL_LENGTH
+from .ga import Ga, GAConfig
+from .heuristics import best_nearest_neighbor_two_opt, two_opt
+from .individual import Individual
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,9 +21,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tournament-size", type=int, default=3)
     parser.add_argument("--elite-count", type=int, default=2)
     parser.add_argument("--output-dir", type=Path, default=Path("output"))
-    parser.add_argument("--show", action="store_true", help="open plot windows")
-    parser.add_argument("--no-plot", action="store_true", help="skip image generation")
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("--show", action="store_true", help="open plot windows")
+    output_group.add_argument("--no-plot", action="store_true", help="skip image generation")
     parser.add_argument("--progress", action="store_true", help="print every generation")
+    parser.add_argument(
+        "--hybrid",
+        action="store_true",
+        help="finish the GA result with 2-opt and report it as a separate comparison",
+    )
     return parser
 
 
@@ -56,9 +62,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"optimality_gap_percent={gap:.6f}")
     print(f"nearest_neighbor_2opt={baseline_distance:.12f}")
 
+    if args.hybrid:
+        hybrid_route, hybrid_distance = two_opt(best.gene)
+        hybrid_gap = (hybrid_distance / KNOWN_OPTIMAL_LENGTH - 1) * 100
+        print("hybrid_route=" + ",".join(map(str, hybrid_route)))
+        print(f"hybrid_distance={hybrid_distance:.12f}")
+        print(f"hybrid_optimality_gap_percent={hybrid_gap:.6f}")
+
     if not args.no_plot:
         # Imported lazily so `--no-plot` stays usable without matplotlib installed.
-        from plot import Plot
+        from .plot import Plot
 
         route_path, fitness_path = Plot(solver, args.output_dir).plot_all(show=args.show)
         print(f"route_plot={route_path.resolve()}")
@@ -66,5 +79,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

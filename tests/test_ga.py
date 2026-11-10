@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from ga import Ga, GAConfig, GeneticAlgorithm
+from ga_tsp import Ga, GAConfig, GeneticAlgorithm
 
 
 def test_population_size_and_global_best_history_are_stable() -> None:
@@ -11,6 +11,7 @@ def test_population_size_and_global_best_history_are_stable() -> None:
     best = solver.train()
 
     assert len(solver.population) == config.population_size
+    assert solver.individual_list is solver.population
     assert len(solver.best_list) == config.generations
     assert len(solver.result_list) == config.generations
     assert len(solver.fitness_list) == config.generations

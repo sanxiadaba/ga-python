@@ -3,8 +3,8 @@
 from collections.abc import Sequence
 from functools import cache
 
-from constant import CITY_POS
-from utility import DistanceMatrix, build_distance_matrix, route_length
+from .constant import CITY_POS
+from .utility import DistanceMatrix, build_distance_matrix, route_length
 
 CITY_DISTANCE_MATRIX = build_distance_matrix(CITY_POS)
 
