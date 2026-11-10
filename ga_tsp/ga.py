@@ -1,7 +1,5 @@
 """通用遗传算法引擎。"""
 
-from __future__ import annotations
-
 import random
 from collections.abc import Callable
 from copy import deepcopy
@@ -15,14 +13,11 @@ GeneFactory = Callable[[random.Random], GeneT]
 FitnessFunction = Callable[[GeneT], float]
 CrossoverFunction = Callable[[GeneT, GeneT, random.Random], tuple[GeneT, GeneT]]
 MutationFunction = Callable[[GeneT, random.Random, float], GeneT]
-RefineFunction = Callable[[GeneT], GeneT]
-CloneFunction = Callable[[GeneT], GeneT]
-ProgressCallback = Callable[[int, "Individual[GeneT]"], None]
 
 
 @dataclass(frozen=True, slots=True)
 class Individual(Generic[GeneT]):
-    """基因与它的适应度绑在一起，不可变。"""
+    """一个解和它的得分。"""
 
     gene: GeneT
     fitness: float
@@ -30,7 +25,7 @@ class Individual(Generic[GeneT]):
 
 @dataclass(frozen=True, slots=True)
 class GAConfig:
-    """遗传算法的运行参数，构造时即校验。"""
+    """运行参数，构造时校验。"""
 
     population_size: int = 30
     generations: int = 30
@@ -54,12 +49,10 @@ class GAConfig:
 
 
 class GeneticAlgorithm(Generic[GeneT]):
-    """策略驱动、给定种子完全可复现的遗传算法。
+    """遗传算法。同一 seed 结果完全一致。
 
-    四个策略钩子负责搜索：``gene_factory`` 造初始解，``crossover_function``
-    重组，``mutation_function`` 扰动，``fitness_function`` 打分。
-    ``refine_function`` 是可选的后处理，对每个新个体做一次局部改进，
-    构成模因算法（memetic）；不传就是纯遗传算法。
+    传 ``refine_function`` 时，每个新个体先被它改进一次再打分（memetic）；
+    不传就是纯遗传算法。
     """
 
     def __init__(
@@ -70,8 +63,8 @@ class GeneticAlgorithm(Generic[GeneT]):
         fitness_function: FitnessFunction[GeneT],
         crossover_function: CrossoverFunction[GeneT],
         mutation_function: MutationFunction[GeneT],
-        refine_function: RefineFunction[GeneT] | None = None,
-        clone_function: CloneFunction[GeneT] = deepcopy,
+        refine_function: Callable[[GeneT], GeneT] | None = None,
+        clone_function: Callable[[GeneT], GeneT] = deepcopy,
     ) -> None:
         self.config = config
         self.gene_factory = gene_factory
@@ -107,7 +100,7 @@ class GeneticAlgorithm(Generic[GeneT]):
         )
 
     def _best(self, population: list[Individual[GeneT]]) -> Individual[GeneT]:
-        """取最好的个体，不为此做一次完整排序。"""
+        """取最好的个体。"""
         if self.config.minimize:
             return min(population, key=lambda individual: individual.fitness)
         return max(population, key=lambda individual: individual.fitness)
@@ -118,7 +111,7 @@ class GeneticAlgorithm(Generic[GeneT]):
         return candidate > incumbent
 
     def _select_parent(self) -> Individual[GeneT]:
-        """锦标赛选择：随机抽若干互不重复的个体，取其中最好的一个。"""
+        """锦标赛选择：抽几个不同的个体，取最好的。"""
         population = self.population
         size = len(population)
         picks = [int(self._rng.random() * size)]
@@ -155,8 +148,10 @@ class GeneticAlgorithm(Generic[GeneT]):
                 next_population.append(self._evaluate(mutated))
         self.population = next_population
 
-    def train(self, progress_callback: ProgressCallback[GeneT] | None = None) -> Individual[GeneT]:
-        """重置全部状态后训练，返回找到的最好个体。"""
+    def train(
+        self, progress_callback: Callable[[int, Individual[GeneT]], None] | None = None
+    ) -> Individual[GeneT]:
+        """从头训练，返回最好的个体。"""
         self._reset()
         self.population = [
             self._evaluate(self.gene_factory(self._rng)) for _ in range(self.config.population_size)

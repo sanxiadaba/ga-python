@@ -1,8 +1,4 @@
-"""TSP 用的三个遗传算子：初始种群、顺序交叉、反转变异。
-
-算子只管搜索，不做合法性校验；排列约束由 fitness 边界统一把关，
-这样热路径上不会为每次交叉多造两个集合。
-"""
+"""TSP 用的三个算子。排列约束由 fitness 把关，这里不做校验。"""
 
 import random
 from collections.abc import Sequence
@@ -20,7 +16,7 @@ def generate_permutation(length: int, rng: random.Random) -> tuple[int, ...]:
 def _ordered_child(
     segment_parent: Sequence[int], fill_parent: Sequence[int], start: int, end: int
 ) -> tuple[int, ...]:
-    """保留 segment_parent 的 [start, end] 片段，其余按 fill_parent 的顺序补满。"""
+    """保留一段，其余按另一个父代的顺序补齐。"""
     length = len(segment_parent)
     child = [0] * length
     child[start : end + 1] = segment_parent[start : end + 1]
@@ -42,7 +38,7 @@ def _ordered_child(
 def ordered_crossover(
     first: Sequence[int], second: Sequence[int], rng: random.Random
 ) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    """顺序交叉（OX）：两个父代交换各自的一段，子代仍是排列。"""
+    """顺序交叉：两个父代交换一段，子代仍是排列。"""
     if len(first) != len(second):
         raise ValueError("两个父代的长度必须相同")
     if len(first) < 2:
@@ -57,7 +53,7 @@ def ordered_crossover(
 def inversion_mutation(
     gene: Sequence[int], rng: random.Random, probability: float
 ) -> tuple[int, ...]:
-    """以给定概率反转一段非空区间。"""
+    """按概率反转一段。"""
     values = tuple(gene)
     if len(values) < 2 or rng.random() >= probability:
         return values

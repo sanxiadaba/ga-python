@@ -1,7 +1,5 @@
 """把路线和适应度曲线存成 png。"""
 
-from __future__ import annotations
-
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -57,7 +55,7 @@ def _fitness_figure(solver: GeneticAlgorithm[tuple[int, ...]]) -> Figure:
 def save_plots(
     solver: GeneticAlgorithm[tuple[int, ...]], output_dir: str | Path, *, show: bool = False
 ) -> tuple[Path, Path]:
-    """保存路线图和适应度曲线，顺带把 figure 关掉。"""
+    """存两张图，返回路径。"""
     best = solver.best
     if best is None:
         raise ValueError("需要先训练再绘图")

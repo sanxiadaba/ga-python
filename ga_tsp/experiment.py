@@ -1,7 +1,5 @@
 """多种子实验统计。"""
 
-from __future__ import annotations
-
 import random
 import statistics
 from dataclasses import dataclass, replace
@@ -12,7 +10,7 @@ from .tsp import KNOWN_OPTIMAL_LENGTH, TspGA
 
 @dataclass(frozen=True, slots=True)
 class ExperimentSummary:
-    """一组重复实验的汇总。"""
+    """多次运行的汇总。"""
 
     distances: tuple[float, ...]
     optimum: float
@@ -36,7 +34,6 @@ class ExperimentSummary:
 
     @property
     def standard_deviation(self) -> float:
-        """各次运行距离的总体标准差。"""
         return statistics.pstdev(self.distances)
 
     @property
@@ -55,14 +52,14 @@ class ExperimentSummary:
 
 
 def resolve_base_seed(config: GAConfig) -> int:
-    """返回本轮实验的第一个种子，配置里没给就现抽一个。"""
+    """没给种子就随机抽一个。"""
     if config.seed is not None:
         return config.seed
     return random.SystemRandom().randrange(2**32)
 
 
 def run_experiment(runs: int, base_config: GAConfig, *, memetic: bool = True) -> ExperimentSummary:
-    """用连续种子各跑一次，汇总结果。"""
+    """用连续种子各跑一次。"""
     if runs < 1:
         raise ValueError("实验次数至少为 1")
     base_seed = resolve_base_seed(base_config)

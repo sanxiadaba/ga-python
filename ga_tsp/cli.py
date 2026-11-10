@@ -1,6 +1,4 @@
-"""``ga-tsp`` 命令行：单次求解或多种子统计。"""
-
-from __future__ import annotations
+"""ga-tsp 命令行。"""
 
 import argparse
 import time
@@ -12,7 +10,7 @@ from .experiment import ExperimentSummary, run_experiment
 from .ga import GAConfig, Individual
 from .tsp import KNOWN_OPTIMAL_LENGTH, TspGA, baseline_tour
 
-# 两种模式下各自合适的规模：memetic 收敛很快，纯遗传算法需要更多代数才看得出效果。
+# 纯 GA 要跑更多代才看得出效果。
 MEMETIC_DEFAULTS = {"population_size": 30, "generations": 30}
 PURE_DEFAULTS = {"population_size": 80, "generations": 300}
 LABEL_WIDTH = 12
@@ -49,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pure",
         action="store_true",
-        help="关掉 2-opt 精炼跑纯遗传算法（默认带精炼，能稳定拿到最优解）",
+        help="关掉 2-opt，跑纯遗传算法",
     )
     parser.add_argument(
         "--runs", type=_run_count, default=None, help="跑 N 个连续种子并输出统计，此时不画图"
@@ -103,7 +101,7 @@ def _print_single(args: argparse.Namespace, config: GAConfig, memetic: bool) -> 
         _row("耗时", f"{elapsed:.3f} 秒"),
     ]
     if not args.no_plot:
-        # 延迟导入：--no-plot 时完全不必加载 matplotlib。
+        # 延迟导入，--no-plot 时不加载 matplotlib。
         from .plot import save_plots
 
         route_path, fitness_path = save_plots(solver, args.output_dir, show=args.show)

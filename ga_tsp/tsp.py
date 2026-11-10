@@ -1,6 +1,4 @@
-"""内置的 25 城 TSP：坐标、距离矩阵、fitness、确定性基线与 TSP 求解器。"""
-
-from __future__ import annotations
+"""内置的 25 城 TSP。"""
 
 import random
 from collections.abc import Sequence
@@ -40,7 +38,7 @@ CITY_POS: tuple[tuple[float, float], ...] = (
 
 CITY_COUNT = len(CITY_POS)
 
-# 用独立的混合整数规划模型求到零 MIP gap 的最优解。
+# 独立用整数规划验证过的最优解。
 KNOWN_OPTIMAL_LENGTH = 4.267835351807
 KNOWN_OPTIMAL_TOUR: tuple[int, ...] = (
     0,
@@ -75,7 +73,7 @@ DistanceMatrix = tuple[tuple[float, ...], ...]
 
 
 def build_distance_matrix(points: Sequence[Point]) -> DistanceMatrix:
-    """预计算所有城市两两之间的欧氏距离。"""
+    """城市两两之间的距离。"""
     return tuple(tuple(dist(first, second) for second in points) for first in points)
 
 
@@ -100,13 +98,13 @@ def _required_cities(city_count: int) -> frozenset[int]:
 
 
 def validate_tour(gene: Sequence[int], city_count: int = CITY_COUNT) -> None:
-    """拒绝丢城市或重复城市的路线。"""
+    """校验路线是 0..n-1 的排列。"""
     if len(gene) != city_count or set(gene) != _required_cities(city_count):
         raise ValueError(f"路线必须是 0..{city_count - 1} 的一个排列")
 
 
 def tsp_fitness(gene: Sequence[int], distance_matrix: DistanceMatrix = CITY_DISTANCES) -> float:
-    """闭合 TSP 路线的长度，顺便把住排列约束这个关口。"""
+    """路线长度，顺便校验排列。"""
     validate_tour(gene, len(distance_matrix))
     return route_length(gene, distance_matrix)
 
@@ -131,10 +129,7 @@ def nearest_neighbor_tour(
 def two_opt(
     route: Sequence[int], distance_matrix: DistanceMatrix = CITY_DISTANCES
 ) -> tuple[tuple[int, ...], float]:
-    """用 2-opt 局部搜索改进闭合路线，直到没有可改进的边对。
-
-    每次只用四条边的长度差判断是否改进，不再重算整条路线。
-    """
+    """2-opt 局部搜索，只看四条边的长度差。"""
     best = list(route)
     count = len(best)
     improved = True
@@ -166,7 +161,7 @@ def two_opt(
 def baseline_tour(
     distance_matrix: DistanceMatrix = CITY_DISTANCES,
 ) -> tuple[tuple[int, ...], float]:
-    """对每个起点做最近邻 + 2-opt，返回最好的一条；完全确定性。"""
+    """每个起点做最近邻 + 2-opt，取最好的。"""
     return min(
         (
             two_opt(nearest_neighbor_tour(start, distance_matrix), distance_matrix)
@@ -185,12 +180,7 @@ def _refine(gene: tuple[int, ...]) -> tuple[int, ...]:
 
 
 class TspGA(GeneticAlgorithm[tuple[int, ...]]):
-    """求解内置 25 城 TSP 的遗传算法。
-
-    ``memetic=True``（默认）会在每个新个体评估前跑一次 2-opt，
-    这样几十毫秒就能稳定拿到已知最优解；``memetic=False`` 是纯遗传算法，
-    留给对照实验用。
-    """
+    """内置 TSP 的遗传算法。memetic=True 时每个新解先做一次 2-opt。"""
 
     def __init__(self, config: GAConfig | None = None, *, memetic: bool = True) -> None:
         super().__init__(
