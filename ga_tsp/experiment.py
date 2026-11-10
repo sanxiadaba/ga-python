@@ -1,20 +1,19 @@
-"""Repeat the TSP experiment and report aggregate quality statistics."""
+"""多种子实验统计。"""
 
 from __future__ import annotations
 
-import argparse
 import random
 import statistics
-from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
-from .constant import KNOWN_OPTIMAL_LENGTH
-from .ga import Ga, GAConfig
-from .heuristics import best_nearest_neighbor_two_opt
+from .ga import GAConfig
+from .tsp import KNOWN_OPTIMAL_LENGTH, TspGA
 
 
 @dataclass(frozen=True, slots=True)
 class ExperimentSummary:
+    """一组重复实验的汇总。"""
+
     distances: tuple[float, ...]
     optimum: float
     base_seed: int = 0
@@ -37,7 +36,7 @@ class ExperimentSummary:
 
     @property
     def standard_deviation(self) -> float:
-        """Population standard deviation of the run distances."""
+        """各次运行距离的总体标准差。"""
         return statistics.pstdev(self.distances)
 
     @property
@@ -46,77 +45,29 @@ class ExperimentSummary:
 
     @property
     def optimal_runs(self) -> int:
-        return sum(abs(distance - self.optimum) <= 1e-9 for distance in self.distances)
+        return sum(distance <= self.optimum * (1 + 1e-9) for distance in self.distances)
 
     def runs_within_percent(self, percent: float) -> int:
         if percent < 0:
-            raise ValueError("percent must not be negative")
+            raise ValueError("百分比不能为负")
         limit = self.optimum * (1 + percent / 100)
         return sum(distance <= limit for distance in self.distances)
 
 
 def resolve_base_seed(config: GAConfig) -> int:
-    """Return the first seed of the run, drawing one when the config leaves it open."""
+    """返回本轮实验的第一个种子，配置里没给就现抽一个。"""
     if config.seed is not None:
         return config.seed
     return random.SystemRandom().randrange(2**32)
 
 
-def run_experiment(runs: int, base_config: GAConfig) -> ExperimentSummary:
-    """Run the solver once per consecutive seed and summarize the results."""
+def run_experiment(runs: int, base_config: GAConfig, *, memetic: bool = True) -> ExperimentSummary:
+    """用连续种子各跑一次，汇总结果。"""
     if runs < 1:
-        raise ValueError("runs must be at least 1")
+        raise ValueError("实验次数至少为 1")
     base_seed = resolve_base_seed(base_config)
-    distances = []
-    for offset in range(runs):
-        config = replace(base_config, seed=base_seed + offset)
-        distances.append(Ga(config).train().fitness)
-    return ExperimentSummary(tuple(distances), KNOWN_OPTIMAL_LENGTH, base_seed)
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Repeat and summarize the TSP experiment")
-    parser.add_argument("--runs", type=int, default=30)
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--generations", type=int, default=300)
-    parser.add_argument("--population-size", type=int, default=80)
-    parser.add_argument("--mutation-probability", type=float, default=0.25)
-    parser.add_argument("--tournament-size", type=int, default=3)
-    parser.add_argument("--elite-count", type=int, default=2)
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    try:
-        config = GAConfig(
-            population_size=args.population_size,
-            generations=args.generations,
-            mutation_probability=args.mutation_probability,
-            tournament_size=args.tournament_size,
-            elite_count=args.elite_count,
-            seed=args.seed,
-        )
-    except ValueError as error:
-        parser.error(str(error))
-    summary = run_experiment(args.runs, config)
-    _, baseline = best_nearest_neighbor_two_opt()
-    print(f"runs={len(summary.distances)}")
-    print(f"base_seed={summary.base_seed}")
-    print(f"best={summary.best:.12f}")
-    print(f"median={summary.median:.12f}")
-    print(f"mean={summary.mean:.12f}")
-    print(f"standard_deviation={summary.standard_deviation:.12f}")
-    print(f"worst={summary.worst:.12f}")
-    print(f"known_optimum={summary.optimum:.12f}")
-    print(f"mean_gap_percent={summary.mean_gap_percent:.6f}")
-    print(f"optimal_runs={summary.optimal_runs}")
-    print(f"within_1_percent={summary.runs_within_percent(1)}")
-    print(f"within_5_percent={summary.runs_within_percent(5)}")
-    print(f"nearest_neighbor_2opt={baseline:.12f}")
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+    distances = tuple(
+        TspGA(replace(base_config, seed=base_seed + offset), memetic=memetic).train().fitness
+        for offset in range(runs)
+    )
+    return ExperimentSummary(distances, KNOWN_OPTIMAL_LENGTH, base_seed)

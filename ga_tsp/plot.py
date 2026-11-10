@@ -1,77 +1,75 @@
-"""Plotting for the bundled TSP experiment."""
+"""把路线和适应度曲线存成 png。"""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from .constant import CITY_POS
-from .ga import Ga
+from .ga import GeneticAlgorithm
+from .tsp import CITY_POS, KNOWN_OPTIMAL_LENGTH
+
+ROUTE_FILENAME = "route.png"
+FITNESS_FILENAME = "fitness.png"
 
 
-class Plot:
-    def __init__(self, ga: Ga, output_dir: str | Path = "output") -> None:
-        if ga.best is None:
-            raise ValueError("the genetic algorithm must be trained before plotting")
-        self.ga = ga
-        self.output_dir = Path(output_dir)
+def _save(figure: Figure, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(destination, dpi=160, bbox_inches="tight")
+    return destination
 
-    def plot_all(self, *, show: bool = False) -> tuple[Path, Path]:
-        """Save both figures and optionally open a blocking GUI window."""
-        route_figure = self._tour_figure()
-        fitness_figure = self._fitness_figure()
-        route_path = self._save(route_figure, "plot_tsp.jpg")
-        fitness_path = self._save(fitness_figure, "fitness.jpg")
+
+def _route_figure(route: Sequence[int]) -> Figure:
+    closed = (*route, route[0])
+    figure, axis = plt.subplots()
+    axis.plot(
+        [CITY_POS[index][0] for index in closed],
+        [CITY_POS[index][1] for index in closed],
+        "o-",
+        color="tab:red",
+        linewidth=1.2,
+        markersize=5,
+    )
+    axis.set(title="TSP route", xlabel="x", ylabel="y")
+    axis.set_aspect("equal", adjustable="datalim")
+    axis.grid(alpha=0.25)
+    return figure
+
+
+def _fitness_figure(solver: GeneticAlgorithm[tuple[int, ...]]) -> Figure:
+    generations = range(1, len(solver.best_history) + 1)
+    figure, axis = plt.subplots()
+    axis.plot(generations, solver.best_history, color="tab:blue", label="best so far")
+    axis.plot(
+        generations, solver.mean_history, color="tab:orange", alpha=0.7, label="population mean"
+    )
+    axis.axhline(
+        KNOWN_OPTIMAL_LENGTH, color="tab:green", linestyle="--", linewidth=1, label="known optimum"
+    )
+    axis.set(title="Tour length by generation", xlabel="Generation", ylabel="Distance")
+    axis.legend()
+    axis.grid(alpha=0.25)
+    return figure
+
+
+def save_plots(
+    solver: GeneticAlgorithm[tuple[int, ...]], output_dir: str | Path, *, show: bool = False
+) -> tuple[Path, Path]:
+    """保存路线图和适应度曲线，顺带把 figure 关掉。"""
+    best = solver.best
+    if best is None:
+        raise ValueError("需要先训练再绘图")
+    directory = Path(output_dir)
+    route_figure = _route_figure(best.gene)
+    fitness_figure = _fitness_figure(solver)
+    try:
+        route_path = _save(route_figure, directory / ROUTE_FILENAME)
+        fitness_path = _save(fitness_figure, directory / FITNESS_FILENAME)
         if show:
             plt.show()
-        self._close(route_figure, fitness_figure)
-        return route_path, fitness_path
-
-    def plot_fitness(self, *, show: bool = False) -> Path:
-        """Save the best-fitness history and release its figure."""
-        figure = self._fitness_figure()
-        path = self._save(figure, "fitness.jpg")
-        if show:
-            plt.show()
-        self._close(figure)
-        return path
-
-    def plot_tsp(self, *, show: bool = False) -> Path:
-        """Save the best route and release its figure."""
-        figure = self._tour_figure()
-        path = self._save(figure, "plot_tsp.jpg")
-        if show:
-            plt.show()
-        self._close(figure)
-        return path
-
-    def _save(self, figure: Figure, name: str) -> Path:
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        destination = self.output_dir / name
-        figure.savefig(destination, dpi=160, bbox_inches="tight")
-        return destination
-
-    @staticmethod
-    def _close(*figures: Figure) -> None:
-        for figure in figures:
-            plt.close(figure)
-
-    def _fitness_figure(self) -> Figure:
-        figure, axis = plt.subplots()
-        axis.plot(range(1, len(self.ga.fitness_list) + 1), self.ga.fitness_list)
-        axis.set(title="Best tour length", xlabel="Generation", ylabel="Distance")
-        axis.grid(alpha=0.25)
-        return figure
-
-    def _tour_figure(self) -> Figure:
-        if self.ga.best is None:  # pragma: no cover - __init__ already rejects untrained solvers
-            raise ValueError("the genetic algorithm must be trained before plotting")
-        route = (*self.ga.best.gene, self.ga.best.gene[0])
-        x_values = [CITY_POS[index][0] for index in route]
-        y_values = [CITY_POS[index][1] for index in route]
-        figure, axis = plt.subplots()
-        axis.plot(x_values, y_values, "o-r")
-        axis.set(title="TSP route", xlabel="x", ylabel="y")
-        axis.set_aspect("equal", adjustable="datalim")
-        axis.grid(alpha=0.25)
-        return figure
+    finally:
+        plt.close(route_figure)
+        plt.close(fitness_figure)
+    return route_path, fitness_path

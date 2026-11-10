@@ -4,37 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ga-python-tsp"
-version = "2.0.0"
-description = "A reproducible genetic-algorithm experiment for a 25-city TSP"
+version = "3.0.0"
+description = "通用遗传算法引擎与内置的 25 城 TSP 示例"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "sanxiadaba" }]
-keywords = ["genetic-algorithm", "tsp", "optimization", "reproducibility"]
+keywords = ["genetic-algorithm", "tsp", "optimization"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Education",
-    "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-dependencies = [
-    "matplotlib>=3.8,<4",
-]
+dependencies = ["matplotlib>=3.8"]
 
 [project.optional-dependencies]
-dev = [
-    "mypy>=1.15,<2",
-    "pytest>=8,<10",
-    "pytest-cov>=6,<8",
-    "ruff>=0.11,<1",
-]
+dev = ["mypy>=1.15", "pytest>=8", "pytest-cov>=6", "ruff>=0.11"]
 
 [project.urls]
 Homepage = "https://github.com/sanxiadaba/ga-python"
@@ -42,8 +27,7 @@ Repository = "https://github.com/sanxiadaba/ga-python"
 Issues = "https://github.com/sanxiadaba/ga-python/issues"
 
 [project.scripts]
-ga-tsp = "ga_tsp.main:main"
-ga-tsp-experiment = "ga_tsp.experiment:main"
+ga-tsp = "ga_tsp.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["ga_tsp*"]
@@ -65,16 +49,14 @@ show_missing = true
 skip_covered = true
 
 [tool.mypy]
-# No fixed python_version on purpose: each CI job type-checks the interpreter it runs on.
-# Pinning 3.10 here makes mypy parse NumPy 2.5's PEP 695 stubs as 3.10 and fail with a
-# syntax error on the 3.12+ jobs. The 3.10 syntax floor is enforced by ruff's
-# target-version and by the dedicated 3.10 job.
 strict = true
 packages = ["ga_tsp"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
+# 中文标点是正文的一部分，不按“易混 ASCII”处理。
+ignore = ["RUF001", "RUF002", "RUF003"]

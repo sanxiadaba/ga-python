@@ -1,148 +1,114 @@
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pytest
 
-from ga_tsp.experiment import main as experiment_main
-from ga_tsp.main import main as cli_main
+from ga_tsp import GAConfig, TspGA
+from ga_tsp.cli import main
+from ga_tsp.plot import save_plots
 
 
-def test_main_generates_plots_and_exits(tmp_path: Path) -> None:
-    environment = os.environ.copy()
-    environment["MPLBACKEND"] = "Agg"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "ga_tsp.main",
-            "--generations",
-            "5",
-            "--population-size",
-            "20",
-            "--output-dir",
-            str(tmp_path),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-        env=environment,
-    )
-    assert result.returncode == 0, result.stderr
-    assert "best_distance=" in result.stdout
-    assert (tmp_path / "fitness.jpg").is_file()
-    assert (tmp_path / "plot_tsp.jpg").is_file()
+def _trained_solver() -> TspGA:
+    solver = TspGA(GAConfig(population_size=10, generations=2))
+    solver.train()
+    return solver
 
 
-def test_experiment_cli_exits() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "ga_tsp.experiment",
-            "--runs",
-            "2",
-            "--generations",
-            "5",
-            "--population-size",
-            "20",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stderr
-    assert "runs=2" in result.stdout
-    assert "mean_gap_percent=" in result.stdout
+def test_single_run_prints_the_route_and_distance(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--no-plot"]) == 0
 
-
-def test_main_reports_invalid_configuration_without_traceback() -> None:
-    result = subprocess.run(
-        [sys.executable, "-m", "ga_tsp.main", "--population-size", "1", "--no-plot"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 2
-    assert "population_size must be at least 2" in result.stderr
-    assert "Traceback" not in result.stderr
-
-
-def test_main_prefers_the_console_script_entry_point() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "from ga_tsp.main import main; raise SystemExit(main(['--no-plot', "
-            "'--generations', '2', '--population-size', '10']))",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stderr
-    assert "best_route=" in result.stdout
-
-
-def test_main_runs_in_process_and_reports_progress(capsys: pytest.CaptureFixture[str]) -> None:
-    code = cli_main(["--no-plot", "--progress", "--generations", "2", "--population-size", "10"])
-    assert code == 0
     output = capsys.readouterr().out
-    assert "generation=   1" in output
-    assert "generation=   2" in output
+    assert "最优路线" in output
+    assert "最优距离" in output
+    assert "基线距离" in output
 
 
-def test_hybrid_flag_never_worsens_the_route(capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli_main(["--no-plot", "--hybrid", "--generations", "5", "--population-size", "20"]) == 0
+def test_pure_mode_runs_without_the_refine_step(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--no-plot", "--pure", "--population-size", "20", "--generations", "20"]) == 0
+
+    assert "最优差距" in capsys.readouterr().out
+
+
+def test_progress_prints_every_generation(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["--no-plot", "--progress", "--population-size", "10", "--generations", "2"])
+
     output = capsys.readouterr().out
-    values = dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
-    assert "hybrid_route" in values
-    assert float(values["hybrid_distance"]) <= float(values["best_distance"])
+    assert "第    1 代" in output
+    assert "第    2 代" in output
 
 
-def test_experiment_runs_in_process(capsys: pytest.CaptureFixture[str]) -> None:
-    assert experiment_main(["--runs", "1", "--generations", "2", "--population-size", "10"]) == 0
+def test_plots_are_written_to_the_output_directory(tmp_path: Path) -> None:
+    assert main(["--output-dir", str(tmp_path)]) == 0
+
+    assert (tmp_path / "route.png").is_file()
+    assert (tmp_path / "fitness.png").is_file()
+
+
+def test_experiment_mode_prints_statistics(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--runs", "2"]) == 0
+
     output = capsys.readouterr().out
-    assert "runs=1" in output
-    assert "base_seed=0" in output
+    assert "实验次数" in output
+    assert "命中最优" in output
+
+
+def test_invalid_configuration_is_reported_as_a_usage_error() -> None:
+    with pytest.raises(SystemExit) as exit_code:
+        main(["--no-plot", "--population-size", "1"])
+
+    assert exit_code.value.code == 2
 
 
 def test_show_and_no_plot_are_mutually_exclusive() -> None:
     with pytest.raises(SystemExit) as exit_code:
-        cli_main(["--show", "--no-plot"])
+        main(["--show", "--no-plot"])
+
     assert exit_code.value.code == 2
 
 
-def test_main_writes_plots_in_process(tmp_path: Path) -> None:
-    assert (
-        cli_main(
-            [
-                "--generations",
-                "2",
-                "--population-size",
-                "10",
-                "--output-dir",
-                str(tmp_path),
-            ]
-        )
-        == 0
+def test_zero_runs_is_rejected_as_a_usage_error() -> None:
+    with pytest.raises(SystemExit) as exit_code:
+        main(["--runs", "0"])
+
+    assert exit_code.value.code == 2
+
+
+def test_module_entry_point_runs() -> None:
+    environment = {**os.environ, "MPLBACKEND": "Agg", "PYTHONIOENCODING": "utf-8"}
+    result = subprocess.run(
+        [sys.executable, "-m", "ga_tsp", "--no-plot", "--generations", "2"],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=60,
+        env=environment,
     )
-    assert (tmp_path / "plot_tsp.jpg").is_file()
-    assert (tmp_path / "fitness.jpg").is_file()
+
+    assert result.returncode == 0, result.stderr
+    assert "最优距离" in result.stdout
 
 
-def test_main_reports_invalid_configuration_in_process() -> None:
-    with pytest.raises(SystemExit) as exit_code:
-        cli_main(["--population-size", "1", "--no-plot"])
-    assert exit_code.value.code == 2
+def test_save_plots_releases_figures(tmp_path: Path) -> None:
+    route_path, fitness_path = save_plots(_trained_solver(), tmp_path)
+
+    assert route_path.is_file()
+    assert fitness_path.is_file()
+    assert plt.get_fignums() == []
 
 
-def test_experiment_reports_invalid_configuration_in_process() -> None:
-    with pytest.raises(SystemExit) as exit_code:
-        experiment_main(["--population-size", "1"])
-    assert exit_code.value.code == 2
+def test_save_plots_requires_a_trained_solver(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="先训练"):
+        save_plots(TspGA(GAConfig(population_size=10, generations=1)), tmp_path)
+
+
+def test_show_releases_figures_under_a_headless_backend(tmp_path: Path) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        save_plots(_trained_solver(), tmp_path, show=True)
+
+    assert plt.get_fignums() == []

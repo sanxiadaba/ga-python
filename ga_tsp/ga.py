@@ -1,4 +1,4 @@
-"""Reusable genetic algorithm plus a configured TSP solver."""
+"""通用遗传算法引擎。"""
 
 from __future__ import annotations
 
@@ -6,28 +6,34 @@ import random
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
+from statistics import fmean
 from typing import Generic, TypeVar
 
-from .constant import CITY_POS
-from .cross import ordered_crossover
-from .fitness import tsp_fitness
-from .gen_gene import generate_permutation
-from .individual import Individual
-from .mutate import inversion_mutation
-
 GeneT = TypeVar("GeneT")
+
 GeneFactory = Callable[[random.Random], GeneT]
 FitnessFunction = Callable[[GeneT], float]
 CrossoverFunction = Callable[[GeneT, GeneT, random.Random], tuple[GeneT, GeneT]]
 MutationFunction = Callable[[GeneT, random.Random, float], GeneT]
-ProgressCallback = Callable[[int, Individual[GeneT]], None]
+RefineFunction = Callable[[GeneT], GeneT]
 CloneFunction = Callable[[GeneT], GeneT]
+ProgressCallback = Callable[[int, "Individual[GeneT]"], None]
+
+
+@dataclass(frozen=True, slots=True)
+class Individual(Generic[GeneT]):
+    """基因与它的适应度绑在一起，不可变。"""
+
+    gene: GeneT
+    fitness: float
 
 
 @dataclass(frozen=True, slots=True)
 class GAConfig:
-    population_size: int = 80
-    generations: int = 300
+    """遗传算法的运行参数，构造时即校验。"""
+
+    population_size: int = 30
+    generations: int = 30
     mutation_probability: float = 0.25
     tournament_size: int = 3
     elite_count: int = 2
@@ -36,19 +42,25 @@ class GAConfig:
 
     def __post_init__(self) -> None:
         if self.population_size < 2:
-            raise ValueError("population_size must be at least 2")
+            raise ValueError("种群规模至少为 2")
         if self.generations < 1:
-            raise ValueError("generations must be at least 1")
+            raise ValueError("迭代代数至少为 1")
         if not 0 <= self.mutation_probability <= 1:
-            raise ValueError("mutation_probability must be between 0 and 1")
+            raise ValueError("变异概率必须在 0 到 1 之间")
         if not 2 <= self.tournament_size <= self.population_size:
-            raise ValueError("tournament_size must be between 2 and population_size")
+            raise ValueError("锦标赛规模必须在 2 到种群规模之间")
         if not 0 <= self.elite_count < self.population_size:
-            raise ValueError("elite_count must be smaller than population_size")
+            raise ValueError("精英个体数必须小于种群规模")
 
 
 class GeneticAlgorithm(Generic[GeneT]):
-    """A deterministic, strategy-driven genetic algorithm."""
+    """策略驱动、给定种子完全可复现的遗传算法。
+
+    四个策略钩子负责搜索：``gene_factory`` 造初始解，``crossover_function``
+    重组，``mutation_function`` 扰动，``fitness_function`` 打分。
+    ``refine_function`` 是可选的后处理，对每个新个体做一次局部改进，
+    构成模因算法（memetic）；不传就是纯遗传算法。
+    """
 
     def __init__(
         self,
@@ -58,6 +70,7 @@ class GeneticAlgorithm(Generic[GeneT]):
         fitness_function: FitnessFunction[GeneT],
         crossover_function: CrossoverFunction[GeneT],
         mutation_function: MutationFunction[GeneT],
+        refine_function: RefineFunction[GeneT] | None = None,
         clone_function: CloneFunction[GeneT] = deepcopy,
     ) -> None:
         self.config = config
@@ -65,30 +78,26 @@ class GeneticAlgorithm(Generic[GeneT]):
         self.fitness_function = fitness_function
         self.crossover_function = crossover_function
         self.mutation_function = mutation_function
+        self.refine_function = refine_function
         self.clone_function = clone_function
         self.population: list[Individual[GeneT]] = []
         self.best: Individual[GeneT] | None = None
-        self.best_list: list[Individual[GeneT]] = []
-        self.result_list: list[GeneT] = []
-        self.fitness_list: list[float] = []
+        self.best_history: list[float] = []
+        self.mean_history: list[float] = []
         self._rng = random.Random(config.seed)
-
-    @property
-    def individual_list(self) -> list[Individual[GeneT]]:
-        """Compatibility name for callers of the original project."""
-        return self.population
 
     def _reset(self) -> None:
         self._rng = random.Random(self.config.seed)
         self.population = []
         self.best = None
-        self.best_list = []
-        self.result_list = []
-        self.fitness_list = []
+        self.best_history = []
+        self.mean_history = []
 
     def _evaluate(self, gene: GeneT) -> Individual[GeneT]:
-        stable_gene = self.clone_function(gene)
-        return Individual(stable_gene, float(self.fitness_function(stable_gene)))
+        if self.refine_function is not None:
+            gene = self.refine_function(gene)
+        stable = self.clone_function(gene)
+        return Individual(stable, float(self.fitness_function(stable)))
 
     def _rank(self, population: list[Individual[GeneT]]) -> list[Individual[GeneT]]:
         return sorted(
@@ -98,7 +107,7 @@ class GeneticAlgorithm(Generic[GeneT]):
         )
 
     def _best(self, population: list[Individual[GeneT]]) -> Individual[GeneT]:
-        """Return the best individual without paying for a full sort."""
+        """取最好的个体，不为此做一次完整排序。"""
         if self.config.minimize:
             return min(population, key=lambda individual: individual.fitness)
         return max(population, key=lambda individual: individual.fitness)
@@ -109,30 +118,45 @@ class GeneticAlgorithm(Generic[GeneT]):
         return candidate > incumbent
 
     def _select_parent(self) -> Individual[GeneT]:
-        contestants = self._rng.sample(self.population, self.config.tournament_size)
-        return self._best(contestants)
+        """锦标赛选择：随机抽若干互不重复的个体，取其中最好的一个。"""
+        population = self.population
+        size = len(population)
+        picks = [int(self._rng.random() * size)]
+        while len(picks) < self.config.tournament_size:
+            index = int(self._rng.random() * size)
+            if index not in picks:
+                picks.append(index)
+        best = population[picks[0]]
+        for index in picks[1:]:
+            candidate = population[index]
+            if self._is_better(candidate.fitness, best.fitness):
+                best = candidate
+        return best
 
     def _next_generation(self) -> None:
+        size = self.config.population_size
         next_population = self._rank(self.population)[: self.config.elite_count]
-        while len(next_population) < self.config.population_size:
-            first_parent = self._select_parent()
-            second_parent = self._select_parent()
-            first_gene, second_gene = self.crossover_function(
-                self.clone_function(first_parent.gene),
-                self.clone_function(second_parent.gene),
+        while len(next_population) < size:
+            first = self._select_parent()
+            second = self._select_parent()
+            children = self.crossover_function(
+                self.clone_function(first.gene),
+                self.clone_function(second.gene),
                 self._rng,
             )
-            for gene in (first_gene, second_gene):
+            if not children:
+                raise ValueError("交叉算子至少返回一个子代")
+            for gene in children:
+                if len(next_population) == size:
+                    break
                 mutated = self.mutation_function(
                     self.clone_function(gene), self._rng, self.config.mutation_probability
                 )
                 next_population.append(self._evaluate(mutated))
-                if len(next_population) == self.config.population_size:
-                    break
         self.population = next_population
 
     def train(self, progress_callback: ProgressCallback[GeneT] | None = None) -> Individual[GeneT]:
-        """Reset state, train, and return the best individual found."""
+        """重置全部状态后训练，返回找到的最好个体。"""
         self._reset()
         self.population = [
             self._evaluate(self.gene_factory(self._rng)) for _ in range(self.config.population_size)
@@ -144,25 +168,9 @@ class GeneticAlgorithm(Generic[GeneT]):
             generation_best = self._best(self.population)
             if self._is_better(generation_best.fitness, self.best.fitness):
                 self.best = generation_best
-            self.best_list.append(self.best)
-            self.result_list.append(self.clone_function(self.best.gene))
-            self.fitness_list.append(self.best.fitness)
+            self.best_history.append(self.best.fitness)
+            self.mean_history.append(fmean(individual.fitness for individual in self.population))
             if progress_callback is not None:
                 progress_callback(generation, self.best)
 
         return self.best
-
-
-class Ga(GeneticAlgorithm[tuple[int, ...]]):
-    """Genetic algorithm configured for the bundled TSP data set."""
-
-    def __init__(self, config: GAConfig | None = None) -> None:
-        selected_config = config or GAConfig()
-        super().__init__(
-            config=selected_config,
-            gene_factory=lambda rng: generate_permutation(len(CITY_POS), rng),
-            fitness_function=tsp_fitness,
-            crossover_function=ordered_crossover,
-            mutation_function=inversion_mutation,
-            clone_function=lambda gene: gene,
-        )
